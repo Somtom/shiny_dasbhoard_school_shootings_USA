@@ -1,0 +1,209 @@
+---
+title: "United States School Shootings Dashboard"
+output: html_notebook
+---
+
+# 22 
+
+... the number of school shootings which took place in USA within the first 21 weeks 2018.
+Statistically this means that **there have been more than 1 shooting per week.**
+The [Washington Post](https://www.washingtonpost.com/news/politics/wp/2018/05/18/2018-has-been-deadlier-for-schoolchildren-than-service-members/?noredirect=on&utm_term=.9ef6aff4ac6d) writes that this led
+to more deaths at schools than deahts of members of the US military while beeing deployed. 
+After almost everyone of theses shootings a new discussion about the USA gun laws arrises. 
+Nevertheless, I do not want to get into theses discussions but rather do something different:   
+
+In the end, hidden behind all these statistics there are people. People who died, people who got
+injuried, people who have been crying for their friends and family members and even more. My aim
+was to built a dashboard where one could explore the stories and data behind incidents documented
+in the List of a Wikipedia article about  [School Shootings in the United States](https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States).
+
+[![Dashboard Screenshot](./dashboard.png)](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+
+For those who are not interessted in the data cleaning and preparation process, the dashboard
+can be found over here: 
+[R-Shiny USA School Shootings Dasbhoard](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+
+The code for the dasbhoard can be found on my Github account:
+[R-Shiny USA School Shootings Dashboard - Code]()
+
+
+# Environment Setup
+```{r, message=FALSE}
+if (!require(rvest)) {
+  install.packages("rvest")
+}
+if (!require(ggmap)) {
+  devtools::install_github("dkahle/ggmap")
+}
+
+if (!require(leaflet)) {
+  install.packages("leaflet")
+}
+library(rvest)
+library(tidyverse)
+library(ggmap)
+library(leaflet)
+library(plotly)
+```
+
+
+# Load Data from Wikipedia 
+
+```{r}
+url <- "https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States"
+
+# Read html tables and save them to a list
+table_list <- url %>% 
+  read_html() %>% 
+  html_nodes("table") %>% 
+  html_table()
+
+# Convert all columns to character to avoid errors becauso of unclean data when binding rows
+dt <- map(table_list, function(x) map(x,as.character)) %>% 
+  bind_rows()
+
+saveRDS(dt, "./usa_school_shootings_shiny/data/raw.RDS")
+
+head(dt)
+```
+
+# Data preparation
+## Data Cleaning
+
+* Remove duplicate part of `Date`   
+* Remove dublicated `Location` after "!"-character 
+* Convert `Injuries` and `Deaths` to integer (characters like "?", "1+", will be converted to NA)
+
+```{r}
+dt <- dt %>% 
+  mutate(
+    # If Date contains "-0000" then remove the first part from it (first 24 characters)
+    Date = ifelse(str_detect(Date, "-0000"), 
+                  str_sub(Date, 24),
+                  Date),
+    # Convert Date to Date type
+    Date = parse_date(Date, format = "%B %d, %Y", locale = locale("en")),
+    year = as.integer(format(Date, "%Y")),
+    century = as.integer(format(Date, "%C")),
+    decade = floor(year/10)*10,
+    # If Location contains "!", then remove part after that character
+    Location = ifelse(str_detect(Location, "!"),
+                      str_sub(Location, 1, str_locate(Location, " !")[,1] - 1),
+                      Location),
+    # Count words in Location for correct State extraction
+    words_in_location = str_count(Location, '\\w+'),
+    # Extract State from Location variable --------------------------------------------------------
+    # If City provided (words_in_location > 1), split City and State to only get State
+    State = ifelse(words_in_location > 1,
+                   str_split_fixed(Location, ",", n = 2)[,2],
+                   Location),
+    # Trim whitespace and remove "." from abbreviations
+    State = gsub("\\.", "", trimws(State)),
+    # Correct state abbreviations using the R state.abb and state.name dataset
+    State = ifelse(State %in% state.abb,
+                   state.name[match(State, state.abb)],
+                   State),
+    # Convert Deaths and Injuries to integer
+    # End: Extract State from Location variable ---------------------------------------------------
+    Deaths = as.integer(Deaths),
+    Injuries = as.integer(Injuries),
+    # Create html popup message for later plot
+    popup = paste0("<b>Date: ", Date, "</b><br/>",
+                   "<b>Deaths: ", Deaths, "</b><br/>",
+                   "<b>Injuries: ", Injuries,"</b><br/>",
+                   "<br/>",
+                   "<b>Description: </b><br/>",
+                   Description)
+  ) %>% 
+  select(-words_in_location)
+
+dt
+```
+
+## Geocoding
+
+```{r}
+api_key <- read_lines("./api-key.txt") #you would need to insert your api key here
+register_google(api_key, account_type = "standard")
+```
+
+```{r, message=F}
+# Get location from Google Maps Geocoding API
+garbadge <- capture.output(locations <- geocode(dt$Location, messaging = FALSE))
+
+# add latitude and longitude data to our data frame
+dt <- bind_cols(dt, locations)
+
+saveRDS(dt, "./usa_school_shootings_shiny/data/cleaned.RDS")
+```
+
+
+
+# Leaflet map
+```{r}
+leaflet(data = dt) %>%
+  addTiles() %>% 
+  addCircleMarkers(lng = ~lon, lat = ~lat, popup = ~popup,
+             label = ~Location,
+             color = ifelse(dt$Deaths > 0, "red", "blue")
+             )
+
+```
+
+
+
+# Plots
+
+
+```{r}
+ myFillColors <- c(Deaths = "#e34a33", Injuries = "#fdbb84")
+
+dt %>%
+  filter(year == "2018") %>% 
+  group_by(State) %>% 
+  summarise(Deaths = sum(Deaths, na.rm = T),
+            Injuries = sum(Injuries, na.rm = T),
+            Total = sum(Deaths, na.rm = T) + sum(Injuries, na.rm = T)) %>% 
+  gather(key = category, value = count, Deaths, Injuries) %>% 
+  ggplot() +
+  geom_col(aes(x = reorder(State, Total), y = count, fill = category),
+           alpha = 0.7, width = 0.8) +
+  scale_fill_manual(values = myFillColors,
+                    guide = guide_legend(title = NULL, keywidth = 1, keyheight = 1)) +
+  xlab("State") +
+  ylab("Injured and Death People") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+
+dt %>%
+  group_by(State) %>% 
+  filter(year == "2018") %>% 
+  summarise(Deaths = sum(Deaths, na.rm = T),
+            Injuries = sum(Injuries, na.rm = T),
+            Total = sum(Deaths, na.rm = T) + sum(Injuries, na.rm = T)) %>% 
+  gather(key = category, value = count, Deaths, Injuries) %>% 
+  ggplot() +
+  geom_col(aes(x = reorder(State, Total), y = count, fill = category),
+           alpha = 0.7, width = 0.8, position = "fill") +
+  scale_fill_manual(values = myFillColors,
+                    guide = guide_legend(title = NULL, keywidth = 1, keyheight = 1)) +
+  scale_y_continuous(labels = scales::percent) +
+  xlab("State") +
+  ylab("Share") +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+
+```{r}
+dt %>% 
+  group_by(year) %>% 
+  summarise(Deaths = sum(Deaths, na.rm = T),
+            Injuries = sum(Injuries, na.rm = T),
+            Incidents = n()) %>% 
+  arrange(desc(year))
+```
+
