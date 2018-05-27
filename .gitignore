@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+*.Rproj
 api-key.txt
 dashboard.png
 wikipedia_data_import.nb.html
