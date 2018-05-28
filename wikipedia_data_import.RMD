@@ -2,33 +2,61 @@
 title: "United States School Shootings Dashboard"
 output: html_notebook
 ---
+!["[Darron Birgenheier 1955 Carpenter / Steelcraft school bus on 1954 GMC chassis HDR with
+ominous clouds](https://www.flickr.com/photos/darronb/9521999625)" by 
+[Darron Birgenheier](https://www.flickr.com/photos/darronb/) licensed under 
+[CC BY-SA 2.0](https://creativecommons.org/licenses/by/2.0/) / modified from original](school-bus.png)
 
-# 22 
 
-... the number of school shootings which took place in USA within the first 21 weeks 2018.
-Statistically this means that **there have been more than 1 shooting per week.**
-The [Washington Post](https://www.washingtonpost.com/news/politics/wp/2018/05/18/2018-has-been-deadlier-for-schoolchildren-than-service-members/?noredirect=on&utm_term=.9ef6aff4ac6d) writes that this led
-to more deaths at schools than deahts of members of the US military while beeing deployed. 
-After almost everyone of theses shootings a new discussion about the USA gun laws arrises. 
-Nevertheless, I do not want to get into theses discussions but rather do something different:   
+# 22...
 
-In the end, hidden behind all these statistics there are people. People who died, people who got
-injuried, people who have been crying for their friends and family members and even more. My aim
-was to built a dashboard where one could explore the stories and data behind incidents documented
-in the List of a Wikipedia article about  [School Shootings in the United States](https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States).
+... this is the count of school shootings which took place in USA within the first 21 weeks in 2018.
+Statistically this means that **there has been more than 1 shooting per week.**
+The [Washington Post](https://www.washingtonpost.com/news/politics/wp/2018/05/18/2018-has-been-deadlier-for-schoolchildren-than-service-members/?noredirect=on&utm_term=.9ef6aff4ac6d) wrote that this led
+to more deaths at schools than members of the US military have been killed while beeing deployed
+this year.   
 
-[![Dashboard Screenshot](./dashboard.png)](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+We hear about those shootings quite often in the news, and after almost every of theses 
+a new discussion about the USA gun laws arrises. 
+Nevertheless, I do not want to get into theses discussions here but rather share some 
+of my research with you. I was wondering if I could visualize USA school shootings on a map and 
+decided to create a interactive dashboard to expolre the data a little bit further.
+I found the [School Shootings in the United States](https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States)
+Wikipedia article which I used as a datasource for my project.  
 
-For those who are not interessted in the data cleaning and preparation process, the dashboard
-can be found over here: 
-[R-Shiny USA School Shootings Dasbhoard](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
 
-The code for the dasbhoard can be found on my Github account:
-[R-Shiny USA School Shootings Dashboard - Code]()
+[![Dashboard Screenshot](./additional_data/images/school-shootings-dashboard.png)](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+
+We need to keep in mind that, hidden behind all these data and statistics, there are people.
+People who died, people who got injuried, people who have been crying for their friends and
+family members and even more. Feel free to explore the data by your own to get a feeling for all
+those incidents and victims:  
+
+[Link to R-Shiny USA School Shootings
+Dasbhoard](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+
+
+**One word of caution at this point:** We cannot be sure that the article has documented every single 
+shooting, but the Wikipedia community is working hard to keep the records up-to-date and adds new 
+entries really quickly. Nevertheless, the present dataset does not raise the claim to be complete 
+and to include every incidents ever happened. 
+
+The code for the dasbhoard can be found on my Github account:  
+
+[R-Shiny USA School Shootings Dashboard - Code](https://github.com/Somtom/shiny_dasbhoard_school_shootings_USA)
+
+For those who are interessted in the data cleaning and preparation, I will go trough this
+process step by step in the rest of the blogpost.
+
 
 
 # Environment Setup
-```{r, message=FALSE}
+
+In order to read the html tables from the Wikipedia article we are going to use the `rvest` package.
+To clean the data we will use the `tidyverse` package, and to built a interactive map later 
+we are going to use the `leaflet` package. Further we will need `ggmap` for geocoding.
+
+```{r, message=FALSE, eval=TRUE}
 if (!require(rvest)) {
   install.packages("rvest")
 }
@@ -43,35 +71,51 @@ library(rvest)
 library(tidyverse)
 library(ggmap)
 library(leaflet)
-library(plotly)
 ```
 
 
 # Load Data from Wikipedia 
 
+To extract the data directly from the Wikipedia article we use the `rvest` package from Hadley 
+Wickham. This package makes it easy to scrape data from html web pages.
+You can find some further information on its [Github page](https://github.com/hadley/rvest) or 
+on [this small blogpost](http://blog.rstudio.com/2014/11/24/rvest-easy-web-scraping-with-r/) from
+Hadley Wickham.
+
 ```{r}
 url <- "https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States"
 
-# Read html tables and save them to a list
-table_list <- url %>% 
-  read_html() %>% 
+# Read html and save it to the dashboard data folder for download
+articleHTML <- url %>% 
+  read_html()
+
+write_html(articleHTML,
+           "./usa_school_shootings_shiny/data/List_of_school_shootings_in_the_United_States.html")
+
+# Extract tables and save them to a list
+table_list <- articleHTML %>% 
   html_nodes("table") %>% 
   html_table()
 
-# Convert all columns to character to avoid errors becauso of unclean data when binding rows
+# Convert all columns to character to avoid errors because of unclean data when binding rows
 dt <- map(table_list, function(x) map(x,as.character)) %>% 
   bind_rows()
 
+# Save raw data to dashbaord data folder
 saveRDS(dt, "./usa_school_shootings_shiny/data/raw.RDS")
 
 head(dt)
 ```
 
-# Data preparation
+# Data Pfreparation
 ## Data Cleaning
 
-* Remove duplicate part of `Date`   
+We need to performe some data processing and cleaning steps so that we can use it for our dashbaord.
+This steps include:  
+
+* Remove duplicated part of `Date` (i.e. `000000001764-07-26-0000July 26, 1764`) 
 * Remove dublicated `Location` after "!"-character 
+(i.e. `Greencastle, Pennsylvania !Greencastle, Pennsylvania`)
 * Convert `Injuries` and `Deaths` to integer (characters like "?", "1+", will be converted to NA)
 
 ```{r}
@@ -92,7 +136,7 @@ dt <- dt %>%
                       Location),
     # Count words in Location for correct State extraction
     words_in_location = str_count(Location, '\\w+'),
-    # Extract State from Location variable --------------------------------------------------------
+    ### Extract State from Location variable ###
     # If City provided (words_in_location > 1), split City and State to only get State
     State = ifelse(words_in_location > 1,
                    str_split_fixed(Location, ",", n = 2)[,2],
@@ -104,7 +148,7 @@ dt <- dt %>%
                    state.name[match(State, state.abb)],
                    State),
     # Convert Deaths and Injuries to integer
-    # End: Extract State from Location variable ---------------------------------------------------
+    ### End: Extract State from Location variable ###
     Deaths = as.integer(Deaths),
     Injuries = as.integer(Injuries),
     # Create html popup message for later plot
@@ -122,14 +166,20 @@ dt
 
 ## Geocoding
 
+Now that we have cleaned the data, we can convert the `Location` column to latitude and longitude 
+data for our plot by using the `geocode()` function from the `ggmap` package. 
+You'll find a small introduction in my previous 
+[blogpost](https://somtom.github.io/), where I used the package to geocode
+the addresses from San Francisco Police Departments.
+
 ```{r}
-api_key <- read_lines("./api-key.txt") #you would need to insert your api key here
+api_key <- read_lines("./additional_data/api-key.txt") #you would need to insert your api key here
 register_google(api_key, account_type = "standard")
 ```
 
-```{r, message=F}
+```{r, message=FALSE}
 # Get location from Google Maps Geocoding API
-garbadge <- capture.output(locations <- geocode(dt$Location, messaging = FALSE))
+locations <- geocode(dt$Location, messaging = FALSE)
 
 # add latitude and longitude data to our data frame
 dt <- bind_cols(dt, locations)
@@ -137,23 +187,53 @@ dt <- bind_cols(dt, locations)
 saveRDS(dt, "./usa_school_shootings_shiny/data/cleaned.RDS")
 ```
 
+```{r, echo=FALSE}
+saveRDS(dt, "./additional_data/data/school_shootings.RDS")
+```
 
 
-# Leaflet map
+# Some plots
+
+```{r, echo=FALSE}
+dt <- readRDS("./additional_data/data/school_shootings.RDS")
+```
+
+
+## Leaflet Map
+
+Having finished the data preprocessing we are going to use the `leaflet` package to create a
+interactive map. I also used this package within the Shiny dasbhoard. Here we will show all
+incidents in year 2018
+
+
 ```{r}
-leaflet(data = dt) %>%
-  addTiles() %>% 
-  addCircleMarkers(lng = ~lon, lat = ~lat, popup = ~popup,
-             label = ~Location,
-             color = ifelse(dt$Deaths > 0, "red", "blue")
-             )
+leafletColors <- colorFactor(palette = c(Deaths = "#e34a33", Injuries = "#fdbb84"), 
+                          domain = c("Incidents with deaths", "No deaths"))
 
+
+leaflet(data = subset(dt, year == "2018")) %>%
+  addTiles() %>% 
+  addCircleMarkers(lng = ~lon,
+                         lat = ~lat,
+                         popup = ~popup,
+                         label = ~Location,
+                         color = ifelse(dt$Deaths > 0, "#e34a33",
+                                        "#fdbb84"),
+                         opacity = 0.3,
+                         fillOpacity = 0.3,
+                         radius = sqrt(dt$Deaths + dt$Injuries) + 6
+        ) %>% 
+  addLegend(position = "topright", 
+            pal = leafletColors, 
+            values = c("Incidents with deaths", "No deaths"))
 ```
 
 
 
-# Plots
+# State Statistics
 
+As in the dashboard we are going to plot to summary plots for a absolute count and share of death 
+and injured people per state (here only year 2018 again).
 
 ```{r}
  myFillColors <- c(Deaths = "#e34a33", Injuries = "#fdbb84")
@@ -198,12 +278,5 @@ dt %>%
 ```
 
 
-```{r}
-dt %>% 
-  group_by(year) %>% 
-  summarise(Deaths = sum(Deaths, na.rm = T),
-            Injuries = sum(Injuries, na.rm = T),
-            Incidents = n()) %>% 
-  arrange(desc(year))
-```
+
 

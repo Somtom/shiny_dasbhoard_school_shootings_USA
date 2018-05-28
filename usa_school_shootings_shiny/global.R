@@ -15,7 +15,7 @@ dt <- readRDS("./data/cleaned.RDS") %>%
 
 # Colors
 myFillColors <- c(Deaths = "#e34a33", Injuries = "#fdbb84")
-testColors <- colorFactor(palette = c(Deaths = "#e34a33", Injuries = "#fdbb84"), 
+leafletColors <- colorFactor(palette = c(Deaths = "#e34a33", Injuries = "#fdbb84"), 
                           domain = c("Incidents with deaths", "No deaths"))
 
 
