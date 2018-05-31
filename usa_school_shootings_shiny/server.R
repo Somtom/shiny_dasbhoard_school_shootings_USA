@@ -16,7 +16,7 @@ shinyServer(function(input, output, session) {
       setView(lat = 41.850033, lng = -87.6500523, zoom = 3) %>% 
       addTiles() %>% 
       addLegend(position = "topright", 
-                pal = testColors, 
+                pal = leafletColors, 
                 values = c("Incidents with deaths", "No deaths"))
   }) # End Map - initial part
   

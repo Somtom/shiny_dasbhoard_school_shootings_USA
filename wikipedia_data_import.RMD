@@ -13,14 +13,14 @@ ominous clouds](https://www.flickr.com/photos/darronb/9521999625)" by
 ... this is the count of school shootings which took place in USA within the first 21 weeks in 2018.
 Statistically this means that **there has been more than 1 shooting per week.**
 The [Washington Post](https://www.washingtonpost.com/news/politics/wp/2018/05/18/2018-has-been-deadlier-for-schoolchildren-than-service-members/?noredirect=on&utm_term=.9ef6aff4ac6d) wrote that this led
-to more deaths at schools than members of the US military have been killed while beeing deployed
+to more deaths at schools than members of the US military have been killed while being deployed
 this year.   
 
 We hear about those shootings quite often in the news, and after almost every of theses 
-a new discussion about the USA gun laws arrises. 
+a new discussion about the USA gun laws arises. 
 Nevertheless, I do not want to get into theses discussions here but rather share some 
 of my research with you. I was wondering if I could visualize USA school shootings on a map and 
-decided to create a interactive dashboard to expolre the data a little bit further.
+decided to create a interactive dashboard to explore the data a little bit further.
 I found the [School Shootings in the United States](https://en.wikipedia.org/wiki/List_of_school_shootings_in_the_United_States)
 Wikipedia article which I used as a datasource for my project.  
 
@@ -33,7 +33,7 @@ family members and even more. Feel free to explore the data by your own to get a
 those incidents and victims:  
 
 [Link to R-Shiny USA School Shootings
-Dasbhoard](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
+Dashboard](https://somtom.shinyapps.io/usa_school_shootings_shiny/)
 
 
 **One word of caution at this point:** We cannot be sure that the article has documented every single 
@@ -41,12 +41,12 @@ shooting, but the Wikipedia community is working hard to keep the records up-to-
 entries really quickly. Nevertheless, the present dataset does not raise the claim to be complete 
 and to include every incidents ever happened. 
 
-The code for the dasbhoard can be found on my Github account:  
+The code for the dashboard can be found on my GitHub account:  
 
 [R-Shiny USA School Shootings Dashboard - Code](https://github.com/Somtom/shiny_dasbhoard_school_shootings_USA)
 
-For those who are interessted in the data cleaning and preparation, I will go trough this
-process step by step in the rest of the blogpost.
+For those who are interested in the data cleaning and preparation, I will go trough this
+process step by step in the rest of the blog post.
 
 
 
@@ -107,14 +107,14 @@ saveRDS(dt, "./usa_school_shootings_shiny/data/raw.RDS")
 head(dt)
 ```
 
-# Data Pfreparation
+# Data Preparation
 ## Data Cleaning
 
-We need to performe some data processing and cleaning steps so that we can use it for our dashbaord.
+We need to perform some data processing and cleaning steps so that we can use it for our dashboard.
 This steps include:  
 
 * Remove duplicated part of `Date` (i.e. `000000001764-07-26-0000July 26, 1764`) 
-* Remove dublicated `Location` after "!"-character 
+* Remove duplicated `Location` after "!"-character 
 (i.e. `Greencastle, Pennsylvania !Greencastle, Pennsylvania`)
 * Convert `Injuries` and `Deaths` to integer (characters like "?", "1+", will be converted to NA)
 
@@ -194,7 +194,7 @@ saveRDS(dt, "./additional_data/data/school_shootings.RDS")
 
 # Some plots
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, eval=TRUE}
 dt <- readRDS("./additional_data/data/school_shootings.RDS")
 ```
 
@@ -202,11 +202,11 @@ dt <- readRDS("./additional_data/data/school_shootings.RDS")
 ## Leaflet Map
 
 Having finished the data preprocessing we are going to use the `leaflet` package to create a
-interactive map. I also used this package within the Shiny dasbhoard. Here we will show all
+interactive map. I also used this package within the Shiny dashboard. Here we will show all
 incidents in year 2018
 
 
-```{r}
+```{r, eval=TRUE}
 leafletColors <- colorFactor(palette = c(Deaths = "#e34a33", Injuries = "#fdbb84"), 
                           domain = c("Incidents with deaths", "No deaths"))
 
@@ -235,7 +235,7 @@ leaflet(data = subset(dt, year == "2018")) %>%
 As in the dashboard we are going to plot to summary plots for a absolute count and share of death 
 and injured people per state (here only year 2018 again).
 
-```{r}
+```{r, eval=TRUE}
  myFillColors <- c(Deaths = "#e34a33", Injuries = "#fdbb84")
 
 dt %>%
